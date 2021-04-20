@@ -1,0 +1,8 @@
+replication:
+  slot-name: test
+
+#spring:
+#  datasource:
+#    test-while-idle: true
+#    validation-query: SELECT 1
+#    time-between-eviction-runs-millis: 60000
