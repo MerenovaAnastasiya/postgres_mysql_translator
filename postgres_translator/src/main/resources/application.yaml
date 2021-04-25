@@ -1,5 +1,29 @@
 replication:
   slot-name: test
+db:
+  user: a.merenova
+  url: jdbc:postgresql://localhost:5432/postgres
+  password: 1
+
+logical-replication:
+  slot-name: test
+
+kafka:
+  default:
+    url: localhost:9092
+    producer:
+      acks: all
+  topic:
+    create_schema:
+      name: create_schems
+    create_table:
+      name: create_table
+    insert:
+      name: insert
+    update:
+      name: update
+    delete:
+      name: delete
 
 #spring:
 #  datasource:
