@@ -4,16 +4,16 @@ spring:
 
 kafka:
   default:
-    url: localhost:9092
+    url: localhost:9091
     producer:
       acks: all
   topic:
     schemas-snapshot:
-      name: create_schems
+      name: schemas-snapshot
       consumer:
         group.id: ${spring.application.name}.${kafka.topic.schemas-snapshot.name}
     tables-snapshot:
-      name: create_table
+      name: tables-snapshot
       consumer:
         group.id: ${spring.application.name}.${kafka.topic.tables-snapshot.name}
     insert:
