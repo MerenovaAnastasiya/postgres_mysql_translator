@@ -2,9 +2,13 @@ package merenaas.com.postgresql_translator.mysql_consumer.configuration;
 
 import lombok.Getter;
 import lombok.Setter;
+import merenaas.com.postgresql_translator.mysql_consumer.dto.DMLEventKey;
+import merenaas.com.postgresql_translator.mysql_consumer.dto.SnapshotEventKey;
+import merenaas.com.postgresql_translator.mysql_consumer.dto.SchemasSnapshotEventValue;
+import merenaas.com.postgresql_translator.mysql_consumer.dto.TablesSnapshotEventValue;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +16,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,52 +25,66 @@ import java.util.Map;
 public class KafkaConfiguration {
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<byte[], byte[]> createSchemaListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
-                                                                                             TopicInformation snapshotTopicInformation) {
-        ConcurrentKafkaListenerContainerFactory<byte[], byte[]> container = new ConcurrentKafkaListenerContainerFactory<>();
-        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, snapshotTopicInformation, ByteArrayDeserializer.class, ByteArrayDeserializer.class));
+    public ConcurrentKafkaListenerContainerFactory<SnapshotEventKey, SchemasSnapshotEventValue> schemasSnapshotListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
+                                                                                                                                 TopicInformation schemasSnapshotTopicInformation) {
+        ConcurrentKafkaListenerContainerFactory<SnapshotEventKey, SchemasSnapshotEventValue> container = new ConcurrentKafkaListenerContainerFactory<>();
+        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, schemasSnapshotTopicInformation, JsonDeserializer.class, JsonDeserializer.class));
         return container;
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<byte[], byte[]> insertListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
-                                                                                           TopicInformation insertTopicInformation) {
-        ConcurrentKafkaListenerContainerFactory<byte[], byte[]> container = new ConcurrentKafkaListenerContainerFactory<>();
-        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, insertTopicInformation, ByteArrayDeserializer.class, ByteArrayDeserializer.class));
+    public ConcurrentKafkaListenerContainerFactory<SnapshotEventKey, TablesSnapshotEventValue> tablesSnapshotListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
+                                                                                                                               TopicInformation tablesSnapshotTopicInformation) {
+        ConcurrentKafkaListenerContainerFactory<SnapshotEventKey, TablesSnapshotEventValue> container = new ConcurrentKafkaListenerContainerFactory<>();
+        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, tablesSnapshotTopicInformation, JsonDeserializer.class, JsonDeserializer.class));
         return container;
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<byte[], byte[]> deleteListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
+    public ConcurrentKafkaListenerContainerFactory<DMLEventKey, String> insertListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
+                                                                                             TopicInformation insertTopicInformation) {
+        ConcurrentKafkaListenerContainerFactory<DMLEventKey, String> container = new ConcurrentKafkaListenerContainerFactory<>();
+        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, insertTopicInformation, JsonDeserializer.class, StringDeserializer.class));
+        return container;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<DMLEventKey, String> deleteListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
                                                                                            TopicInformation deleteTopicInformation) {
-        ConcurrentKafkaListenerContainerFactory<byte[], byte[]> container = new ConcurrentKafkaListenerContainerFactory<>();
-        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, deleteTopicInformation, ByteArrayDeserializer.class, ByteArrayDeserializer.class));
+        ConcurrentKafkaListenerContainerFactory<DMLEventKey, String> container = new ConcurrentKafkaListenerContainerFactory<>();
+        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, deleteTopicInformation, JsonDeserializer.class, StringDeserializer.class));
         return container;
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<byte[], byte[]> updateListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
+    public ConcurrentKafkaListenerContainerFactory<DMLEventKey, String> updateListenerContainer(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
                                                                                            TopicInformation updateTopicInformation) {
-        ConcurrentKafkaListenerContainerFactory<byte[], byte[]> container = new ConcurrentKafkaListenerContainerFactory<>();
-        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, updateTopicInformation, ByteArrayDeserializer.class, ByteArrayDeserializer.class));
+        ConcurrentKafkaListenerContainerFactory<DMLEventKey, String> container = new ConcurrentKafkaListenerContainerFactory<>();
+        container.setConsumerFactory(kafkaConsumerFactory(defaultKafkaProperties, updateTopicInformation, JsonDeserializer.class, StringDeserializer.class));
         return container;
     }
 
     private <TK, TV, K extends Deserializer<TK>, V extends Deserializer<TV>> ConsumerFactory<TK, TV> kafkaConsumerFactory(KafkaProperties kafkaProperties,
                                                                                                                           TopicInformation topicInformation,
-                                                                                                                          Class<K> keySerializerClass,
-                                                                                                                          Class<V> valueSerializerClass) {
+                                                                                                                          Class<K> keyDeserializerClass,
+                                                                                                                          Class<V> valueDeserializerClass) {
         Map<String, Object> configs = new HashMap<>(kafkaProperties.getConsumer());
         configs.putAll(topicInformation.getConsumer());
         configs.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getUrl());
-        configs.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keySerializerClass);
-        configs.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueSerializerClass);
+        configs.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializerClass);
+        configs.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializerClass);
         return new DefaultKafkaConsumerFactory<>(configs);
     }
 
     @Bean
-    @ConfigurationProperties("kafka.topic.snapshot")
-    public TopicInformation snapshotTopicInformation() {
+    @ConfigurationProperties("kafka.topic.schemas-snapshot")
+    public TopicInformation schemasSnapshotTopicInformation() {
+        return new TopicInformation();
+    }
+
+    @Bean
+    @ConfigurationProperties("kafka.topic.tables-snapshot")
+    public TopicInformation tablesSnapshotTopicInformation() {
         return new TopicInformation();
     }
 

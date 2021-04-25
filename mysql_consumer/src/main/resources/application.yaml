@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: mysql-consumer
+
+kafka:
+  default:
+    url: localhost:9092
+    producer:
+      acks: all
+  topic:
+    schemas-snapshot:
+      name: create_schems
+      consumer:
+        group.id: ${spring.application.name}.${kafka.topic.schemas-snapshot.name}
+    tables-snapshot:
+      name: create_table
+      consumer:
+        group.id: ${spring.application.name}.${kafka.topic.tables-snapshot.name}
+    insert:
+      name: insert
+      consumer:
+        group.id: ${spring.application.name}.${kafka.topic.insert.name}
+    update:
+      name: update
+      consumer:
+        group.id: ${spring.application.name}.${kafka.topic.update.name}
+    delete:
+      name: delete
+      consumer:
+        group.id: ${spring.application.name}.${kafka.topic.delete.name}
