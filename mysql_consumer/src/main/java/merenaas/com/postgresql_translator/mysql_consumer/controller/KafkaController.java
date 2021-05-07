@@ -1,7 +1,7 @@
 package merenaas.com.postgresql_translator.mysql_consumer.controller;
 
-import merenaas.com.postgresql_translator.mysql_consumer.dto.SchemasSnapshotEventValue;
-import merenaas.com.postgresql_translator.mysql_consumer.dto.TablesSnapshotEventValue;
+import merenaas.com.postgresql_translator.mysql_consumer.model.SchemasSnapshotEventValue;
+import merenaas.com.postgresql_translator.mysql_consumer.model.TablesSnapshotEventValue;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 

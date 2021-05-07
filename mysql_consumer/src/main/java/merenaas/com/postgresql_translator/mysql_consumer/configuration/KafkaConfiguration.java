@@ -2,10 +2,10 @@ package merenaas.com.postgresql_translator.mysql_consumer.configuration;
 
 import lombok.Getter;
 import lombok.Setter;
-import merenaas.com.postgresql_translator.mysql_consumer.dto.DMLEventKey;
-import merenaas.com.postgresql_translator.mysql_consumer.dto.SnapshotEventKey;
-import merenaas.com.postgresql_translator.mysql_consumer.dto.SchemasSnapshotEventValue;
-import merenaas.com.postgresql_translator.mysql_consumer.dto.TablesSnapshotEventValue;
+import merenaas.com.postgresql_translator.mysql_consumer.model.DMLEventKey;
+import merenaas.com.postgresql_translator.mysql_consumer.model.SnapshotEventKey;
+import merenaas.com.postgresql_translator.mysql_consumer.model.SchemasSnapshotEventValue;
+import merenaas.com.postgresql_translator.mysql_consumer.model.TablesSnapshotEventValue;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;

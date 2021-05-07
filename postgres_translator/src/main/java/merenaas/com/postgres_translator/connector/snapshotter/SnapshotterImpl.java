@@ -2,24 +2,18 @@ package merenaas.com.postgres_translator.connector.snapshotter;
 
 
 import lombok.RequiredArgsConstructor;
-import merenaas.com.postgres_translator.connector.model.DatabaseConfiguration;
-import merenaas.com.postgres_translator.connector.model.MySQLTableInformation;
-import merenaas.com.postgres_translator.connector.model.PgTableInformation;
 import merenaas.com.postgres_translator.connector.model.TableName;
-import merenaas.com.postgres_translator.connector.service.DbMetaService;
+import merenaas.com.postgres_translator.connector.service.ConnectionService;
 import merenaas.com.postgres_translator.connector.service.DbTableService;
-import merenaas.com.postgres_translator.connector.service.MySQLTranslator;
-import merenaas.com.postgres_translator.connector.service.PgReplicationService;
 import merenaas.com.postgres_translator.connector.service.SchemaInformationService;
-import merenaas.com.postgres_translator.connector.service.impl.MySqlConnectionService;
 import merenaas.com.postgres_translator.connector.service.impl.PgConnectionService;
-import merenaas.com.postgres_translator.connector.util.PgMySQLTypesConvertor;
-import org.postgresql.jdbc.PgConnection;
+import merenaas.com.postgres_translator.connector.service.kafka.KafkaSenderAdapter;
+import merenaas.com.postgres_translator.connector.service.replication.PgReplicationService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.Set;
 
 @RequiredArgsConstructor
@@ -27,32 +21,33 @@ import java.util.Set;
 public class SnapshotterImpl implements Snapshotter {
 
     private final SchemaInformationService schemaInformationService;
-    private final DbTableService dbTableService;
-    private final PgConnectionService pgConnectionService;
-    private final MySqlConnectionService mySqlConnectionService;
-    private final DbMetaService dbMetaService;
-    private final MySQLTranslator mySQLTranslator;
-    private final PgMySQLTypesConvertor pgMySQLTypesConvertor;
     private final PgReplicationService pgReplicationService;
+    private final PgConnectionService pgConnectionService;
+    private final DbTableService dbTableService;
 
-    public void makeSnapshot(DatabaseConfiguration pgConfiguration, DatabaseConfiguration mySqlConfiguration, String replicationSlotName) {
-        var pgConnection = pgConnectionService.createConnection(pgConfiguration);
+    private final KafkaSenderAdapter kafkaSenderAdapter;
+    private final ConnectionService connectionService;
+    private final Set<String> replicationSchemas;
+
+    @Value("${replication.plugin-name}")
+    private String pluginName;
+    @Value("${replication.slot-name}")
+    private String slotName;
+
+    public void makeSnapshot() {
+        var pgConnection = connectionService.getConnection();
         //todo надо ли слот запускать???
-        var replicationConnection = pgConnectionService.unwrap(pgConnection, PgConnection.class);
-        pgReplicationService.createLogicalReplicationSlot(replicationConnection, replicationSlotName);
-        pgConnectionService.setAutoCommit(pgConnection, false);
+        pgReplicationService.createLogicalReplicationSlot(slotName, pluginName);
+        pgConnectionService.setAutoCommit(false);
         setTransactionLevel(pgConnection);
-        Set<String> schemaNames = dbMetaService.getDatabaseSchemaNames(pgConnection);
-        var mySqlConnection = mySqlConnectionService.createConnection(mySqlConfiguration);
-        schemaNames.forEach(schemaName -> {
-            mySQLTranslator.createSchema(mySqlConnection, schemaName);
-            Collection<String> tableNames = schemaInformationService.getSchemaTableNames(pgConnection, schemaName);
+        replicationSchemas.forEach(schemaName -> {
+            //синхронно отправляем событие о создании схемы
+            kafkaSenderAdapter.sendSyncCreateSchemaEvent(schemaName);
+            var tableNames = schemaInformationService.getSchemaTableNames(schemaName);
             tableNames.forEach(tableName -> {
-                //todo обрамить в транзакцию
-                dbTableService.shareLock(pgConnection, new TableName(tableName, schemaName));
-                PgTableInformation informationAboutTable = dbTableService.getColumnsInformationAboutTable(pgConnection, new TableName(tableName, schemaName));
-                MySQLTableInformation mySQLTableColumnsInformation = pgMySQLTypesConvertor.convert(informationAboutTable);
-                mySQLTranslator.createTable(mySqlConnection, mySQLTableColumnsInformation);
+                dbTableService.shareLock(new TableName(tableName, schemaName));
+                var informationAboutTable = dbTableService.getColumnsInformationAboutTable(new TableName(tableName, schemaName));
+                kafkaSenderAdapter.sendAsyncCreateTableEvent(informationAboutTable);
             });
         });
     }

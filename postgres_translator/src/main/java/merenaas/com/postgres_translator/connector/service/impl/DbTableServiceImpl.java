@@ -1,14 +1,15 @@
 package merenaas.com.postgres_translator.connector.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import merenaas.com.postgres_translator.connector.model.PgColumnInformation;
-import merenaas.com.postgres_translator.connector.model.PgTableInformation;
+import merenaas.com.postgres_translator.connector.service.ConnectionService;
+import merenaas.com.postgres_translator.connector.model.ColumnInformation;
 import merenaas.com.postgres_translator.connector.model.PrimaryKeyInfo;
+import merenaas.com.postgres_translator.connector.model.TableInformation;
 import merenaas.com.postgres_translator.connector.model.TableName;
 import merenaas.com.postgres_translator.connector.service.DbTableService;
 import org.springframework.stereotype.Service;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -18,11 +19,15 @@ import java.util.Set;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class DbTableServiceImpl implements DbTableService {
 
+    private final ConnectionService connectionService;
+
     @Override
-    public void shareLock(Connection connection, TableName tableName) {
+    public void shareLock(TableName tableName) {
         try {
+            var connection = connectionService.getConnection();
             String sql = "LOCK TABLE " + tableName.getSchemaName() + "." + tableName.getName() + " IN ACCESS SHARE MODE;";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.execute();
@@ -32,7 +37,8 @@ public class DbTableServiceImpl implements DbTableService {
     }
 
     @Override
-    public PgTableInformation getColumnsInformationAboutTable(Connection connection, TableName tableName) {
+    public TableInformation getColumnsInformationAboutTable(TableName tableName) {
+        var connection = connectionService.getConnection();
         var sql = "SELECT column_name, data_type, is_nullable, data_type," +
                 " character_maximum_length, column_default, numeric_precision" +
                 " FROM information_schema.columns WHERE table_name = ? AND table_schema = ?;";
@@ -41,10 +47,10 @@ public class DbTableServiceImpl implements DbTableService {
             statement.setString(1, tableName.getName());
             statement.setString(2, tableName.getSchemaName());
             var resultSet = statement.executeQuery();
-            Set<PgColumnInformation> allPgColumnInformation = new HashSet<>();
+            Set<ColumnInformation> allColumnInformation = new HashSet<>();
             while (resultSet.next()) {
                 boolean isNullable = resultSet.getString("is_nullable").equals("YES");
-                PgColumnInformation pgColumnInformation = PgColumnInformation.builder()
+                ColumnInformation columnInformation = ColumnInformation.builder()
                         .columnName(resultSet.getString("column_name"))
                         .columnType(resultSet.getString("data_type").toUpperCase())
                         .characterMaximumLength(resultSet.getObject("character_maximum_length", Integer.class))
@@ -52,16 +58,17 @@ public class DbTableServiceImpl implements DbTableService {
                         .numericPrecision(resultSet.getObject("numeric_precision", Integer.class))
                         .isNullable(isNullable)
                         .build();
-                allPgColumnInformation.add(pgColumnInformation);
+                allColumnInformation.add(columnInformation);
             }
-            var primaryKeyInfo = getPrimaryKeyInfo(connection, tableName);
-            return new PgTableInformation(tableName, allPgColumnInformation, primaryKeyInfo);
+            var primaryKeyInfo = getPrimaryKeyInfo(tableName);
+            return new TableInformation(tableName, allColumnInformation, primaryKeyInfo);
         } catch (SQLException exception) {
             throw new RuntimeException("Error when trying get information about table");
         }
     }
 
-    private PrimaryKeyInfo getPrimaryKeyInfo(Connection connection, TableName tableName) {
+    private PrimaryKeyInfo getPrimaryKeyInfo(TableName tableName) {
+        var connection = connectionService.getConnection();
         var sql = "SELECT tco.constraint_name, kcu.ordinal_position AS position,  " +
                 "kcu.column_name AS key_column " +
                 "FROM information_schema.table_constraints tco " +

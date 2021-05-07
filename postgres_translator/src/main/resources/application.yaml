@@ -1,8 +1,13 @@
 replication:
+  plugin-name: pg_mysql_decoder
   slot-name: test
+  include-schemas:
+    - test
+  lsn-table-name: public.last_lsn
+
 db:
   user: a.merenova
-  url: jdbc:postgresql://localhost:5432/postgres
+  url: jdbc:postgresql://localhost:5434/postgres
   password: 1
 
 logical-replication:
@@ -24,6 +29,7 @@ kafka:
       name: update
     delete:
       name: delete
+
 
 #spring:
 #  datasource:

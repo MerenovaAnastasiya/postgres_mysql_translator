@@ -1,6 +1,8 @@
 package merenaas.com.postgres_translator.connector.service.impl;
 
-import merenaas.com.postgres_translator.connector.model.DatabaseConfiguration;
+
+import lombok.RequiredArgsConstructor;
+import merenaas.com.postgres_translator.connector.model.DatabaseCredentials;
 import merenaas.com.postgres_translator.connector.service.ConnectionService;
 import org.postgresql.PGProperty;
 import org.springframework.stereotype.Service;
@@ -11,21 +13,24 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 @Service
+@RequiredArgsConstructor
 public class PgConnectionService implements ConnectionService {
 
+    private final DatabaseCredentials databaseCredentials;
+    private Connection connection;
     private static final String DRIVER_CLASSNAME = "org.postgresql.Driver";
 
     @Override
-    public Connection createConnection(DatabaseConfiguration databaseConfiguration) {
+    public Connection createConnection(DatabaseCredentials databaseCredentials) {
         try {
             Class.forName(DRIVER_CLASSNAME);
             Properties props = new Properties();
-            PGProperty.USER.set(props, databaseConfiguration.getUser());
-            PGProperty.PASSWORD.set(props, databaseConfiguration.getPassword());
+            PGProperty.USER.set(props, databaseCredentials.getUser());
+            PGProperty.PASSWORD.set(props, databaseCredentials.getPassword());
             PGProperty.ASSUME_MIN_SERVER_VERSION.set(props, "9.4");
             PGProperty.REPLICATION.set(props, "database");
             PGProperty.PREFER_QUERY_MODE.set(props, "simple");
-            return DriverManager.getConnection(databaseConfiguration.getUrl(), props);
+            return DriverManager.getConnection(databaseCredentials.getUrl(), props);
         } catch (SQLException exception) {
             throw new RuntimeException("Error when trying to create connection");
         } catch (ClassNotFoundException e) {
@@ -33,7 +38,15 @@ public class PgConnectionService implements ConnectionService {
         }
     }
 
-    public void setAutoCommit(Connection connection, boolean autoCommit) {
+    @Override
+    public Connection getConnection() {
+        if (this.connection == null) {
+            connection = createConnection(databaseCredentials);
+        }
+        return this.connection;
+    }
+
+    public void setAutoCommit(boolean autoCommit) {
         try {
             connection.setAutoCommit(autoCommit);
         } catch (SQLException exception) {
@@ -48,4 +61,5 @@ public class PgConnectionService implements ConnectionService {
             throw new RuntimeException("Error when trying wrap connection");
         }
     }
+
 }
