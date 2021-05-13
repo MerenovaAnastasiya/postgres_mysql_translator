@@ -2,7 +2,6 @@ package merenaas.com.postgres_translator.connector.service.kafka;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import merenaas.com.postgres_translator.connector.builder.CreateSchemaEventBuilder;
 import merenaas.com.postgres_translator.connector.model.SchemaInformation;
 import merenaas.com.postgres_translator.connector.model.TableInformation;
 import org.slf4j.MDC;
@@ -17,7 +16,6 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class KafkaSenderAdapter {
 
-    private final CreateSchemaEventBuilder createSchemaEventBuilder;
     private final KafkaSender kafkaSender;
 
     public void sendSyncCreateSchemaEvent(SchemaInformation schemaInformation) {

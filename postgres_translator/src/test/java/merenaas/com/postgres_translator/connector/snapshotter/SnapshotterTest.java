@@ -17,9 +17,13 @@ class SnapshotterTest {
     @Autowired
     PgConnectionService pgConnectionService;
 
+    @Autowired
+    Snapshotter snapshotter;
+
 
     @Test
     public void test() {
+        snapshotter.makeSnapshot();
 //        pgReplicationService.createLogicalReplicationSlot(SLOT_NAME, "pg_mysql_decoder");
         pgReplicationService.replicateData(SLOT_NAME, "test", null);
 
