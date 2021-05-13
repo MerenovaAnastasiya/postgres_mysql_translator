@@ -50,7 +50,7 @@ public class SchemaInformationServiceImpl implements SchemaInformationService {
         try {
             var sql = String.format("SELECT obj_description(oid) as comment, s.nspname as schema_name " +
                     "FROM pg_catalog.pg_namespace s " +
-                    "JOIN pg_catalog.pg_user u on u.usesysid = s.nspowner where oid=s.oid and nspname in (%s))", String.join(", ", schemaNames));
+                    "JOIN pg_catalog.pg_user u on u.usesysid = s.nspowner where oid=s.oid and nspname in ('%s')", String.join(", ", schemaNames));
             var statement = connection.createStatement();
             var resultSet = statement.executeQuery(sql);
             while (resultSet.next()) {
@@ -64,6 +64,7 @@ public class SchemaInformationServiceImpl implements SchemaInformationService {
             }
             return schemaInformationMap;
         } catch (SQLException e) {
+            e.printStackTrace();
             throw new RuntimeException("Error when trying to get schema info");
         } finally {
             connectionService.closeConnection(connection);
