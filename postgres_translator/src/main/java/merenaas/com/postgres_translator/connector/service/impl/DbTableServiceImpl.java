@@ -26,13 +26,15 @@ public class DbTableServiceImpl implements DbTableService {
 
     @Override
     public void shareLock(TableName tableName) {
+        var connection = connectionService.getConnection();
         try {
-            var connection = connectionService.getConnection();
             String sql = "LOCK TABLE " + tableName.getSchemaName() + "." + tableName.getName() + " IN ACCESS SHARE MODE;";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.execute();
         } catch (SQLException e) {
             log.warn("Error when trying lock table with name = {} and schema = {}", tableName.getName(), tableName.getSchemaName());
+        } finally {
+            connectionService.closeConnection(connection);
         }
     }
 
@@ -64,6 +66,8 @@ public class DbTableServiceImpl implements DbTableService {
             return new TableInformation(tableName, allColumnInformation, primaryKeyInfo);
         } catch (SQLException exception) {
             throw new RuntimeException("Error when trying get information about table");
+        } finally {
+            connectionService.closeConnection(connection);
         }
     }
 
@@ -92,7 +96,7 @@ public class DbTableServiceImpl implements DbTableService {
                     constraintName = resultSet.getString("constraint_name");
                 }
             }
-            if(columnNames.isEmpty()) {
+            if (columnNames.isEmpty()) {
                 throw new IllegalArgumentException("Impossible to take a snapshot of the table without PK!");
             }
             return PrimaryKeyInfo.builder()
@@ -101,6 +105,8 @@ public class DbTableServiceImpl implements DbTableService {
                     .build();
         } catch (SQLException ex) {
             throw new RuntimeException("Error when trying get primary key");
+        } finally {
+            connectionService.closeConnection(connection);
         }
     }
 }

@@ -2,6 +2,7 @@ package merenaas.com.postgres_translator.connector.snapshotter;
 
 
 import lombok.RequiredArgsConstructor;
+import merenaas.com.postgres_translator.connector.model.SchemaInformation;
 import merenaas.com.postgres_translator.connector.model.TableName;
 import merenaas.com.postgres_translator.connector.service.ConnectionService;
 import merenaas.com.postgres_translator.connector.service.DbTableService;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Set;
 
 @RequiredArgsConstructor
@@ -35,14 +37,15 @@ public class SnapshotterImpl implements Snapshotter {
     private String slotName;
 
     public void makeSnapshot() {
+
         var pgConnection = connectionService.getConnection();
         //todo надо ли слот запускать???
         pgReplicationService.createLogicalReplicationSlot(slotName, pluginName);
-        pgConnectionService.setAutoCommit(false);
+//        pgConnectionService.setAutoCommit(false);
         setTransactionLevel(pgConnection);
+        var schemaInfoByNameMap = schemaInformationService.getSchemaInfoByNames(replicationSchemas);
         replicationSchemas.forEach(schemaName -> {
-            //синхронно отправляем событие о создании схемы
-            kafkaSenderAdapter.sendSyncCreateSchemaEvent(schemaName);
+            kafkaSenderAdapter.sendSyncCreateSchemaEvent(schemaInfoByNameMap.get(schemaName));
             var tableNames = schemaInformationService.getSchemaTableNames(schemaName);
             tableNames.forEach(tableName -> {
                 dbTableService.shareLock(new TableName(tableName, schemaName));

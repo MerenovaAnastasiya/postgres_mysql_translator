@@ -1,8 +1,12 @@
 package merenaas.com.postgres_translator.connector.configuration;
 
+import com.fasterxml.jackson.databind.JsonSerializer;
 import lombok.Getter;
 import lombok.Setter;
+import merenaas.com.postgres_translator.connector.model.SchemaInformation;
+import merenaas.com.postgres_translator.connector.model.TableInformation;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -19,23 +23,64 @@ import java.util.Map;
 public class KafkaConfiguration {
 
     @Bean
-    public KafkaTemplate<String, String> snapshotKafkaTemplate(ProducerFactory<String, String> snapshotKafkaProducerFactory,
-                                                                                 TopicInformation snapshotTopicInformation) {
-        KafkaTemplate<String, String> kafkaTemplate = new KafkaTemplate<>(snapshotKafkaProducerFactory);
-        kafkaTemplate.setDefaultTopic(snapshotTopicInformation.getName());
+    @ConfigurationProperties("kafka.topic.create-schema")
+    public TopicInformation createSchemaTopicInformation() {
+        return new TopicInformation();
+    }
+
+    @Bean
+    @ConfigurationProperties("kafka.topic.create-table")
+    public TopicInformation createTableTopicInformation() {
+        return new TopicInformation();
+    }
+
+    @Bean
+    @ConfigurationProperties("kafka.topic.dml-operation")
+    public TopicInformation dmlOperationTopicInformation() {
+        return new TopicInformation();
+    }
+
+    @Bean
+    public KafkaTemplate<String, SchemaInformation> createSchemaKafkaTemplate(ProducerFactory<String, SchemaInformation> createSchemaKafkaProducerFactory,
+                                                                              TopicInformation createSchemaTopicInformation) {
+        KafkaTemplate<String, SchemaInformation> kafkaTemplate = new KafkaTemplate<>(createSchemaKafkaProducerFactory);
+        kafkaTemplate.setDefaultTopic(createSchemaTopicInformation.getName());
         return kafkaTemplate;
     }
 
     @Bean
-    public ProducerFactory<String, String> snapshotKafkaProducerFactory(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties, TopicInformation snapshotTopicInformation) {
-        return kafkaProducerFactory(defaultKafkaProperties, snapshotTopicInformation, StringSerializer.class, StringSerializer.class);
+    public KafkaTemplate<String, TableInformation> createTableKafkaTemplate(ProducerFactory<String, TableInformation> createTableKafkaProducerFactory,
+                                                                              TopicInformation createTableTopicInformation) {
+        KafkaTemplate<String, TableInformation> kafkaTemplate = new KafkaTemplate<>(createTableKafkaProducerFactory);
+        kafkaTemplate.setDefaultTopic(createTableTopicInformation.getName());
+        return kafkaTemplate;
     }
 
     @Bean
-    @ConfigurationProperties("kafka.topic.snapshot")
-    public TopicInformation snapshotTopicInformation() {
-        return new TopicInformation();
+    public KafkaTemplate<String, String> dmlOperationKafkaTemplate(ProducerFactory<String, String> dmlOperationKafkaProducerFactory) {
+        return new KafkaTemplate<>(dmlOperationKafkaProducerFactory);
     }
+
+    @Bean
+    public ProducerFactory<String, SchemaInformation> createSchemaKafkaProducerFactory(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
+                                                                                      TopicInformation createSchemaTopicInformation) {
+        return new DefaultKafkaProducerFactory<>(kafkaProducerConfiguration(defaultKafkaProperties, createSchemaTopicInformation,
+                StringSerializer.class, JsonSerializer.class));
+    }
+
+    @Bean
+    public ProducerFactory<String, TableInformation> createTableKafkaProducerFactory(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties,
+                                                                                     TopicInformation createTableTopicInformation) {
+        return new DefaultKafkaProducerFactory<>(kafkaProducerConfiguration(defaultKafkaProperties, createTableTopicInformation,
+                StringSerializer.class, JsonSerializer.class));
+    }
+
+    @Bean
+    public ProducerFactory<String, String> dmlOperationKafkaProducerFactory(@Qualifier("defaultKafkaProperties") KafkaProperties defaultKafkaProperties) {
+        return new DefaultKafkaProducerFactory<>(kafkaProducerConfiguration(defaultKafkaProperties,
+                StringSerializer.class, StringSerializer.class));
+    }
+
 
     @Bean
     @ConfigurationProperties(value = "kafka.default")
@@ -43,17 +88,29 @@ public class KafkaConfiguration {
         return new KafkaProperties();
     }
 
-    private <K, V, TK, TV> ProducerFactory<TK, TV> kafkaProducerFactory(KafkaProperties kafkaProperties,
-                                                                        TopicInformation topicInformation,
-                                                                        Class<K> keySerializerClass,
-                                                                        Class<V> valueSerializerClass) {
+
+    private <K, V> Map<String, Object> kafkaProducerConfiguration(KafkaProperties kafkaProperties,
+                                                                  TopicInformation topicInformation,
+                                                                  Class<K> keySerializerClass,
+                                                                  Class<V> valueSerializerClass) {
         Map<String, Object> configuration = new HashMap<>(kafkaProperties.getProducer());
         configuration.putAll(topicInformation.getProducer());
         configuration.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getUrl());
         configuration.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializerClass);
         configuration.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializerClass);
-        return new DefaultKafkaProducerFactory<>(configuration);
+        return configuration;
     }
+
+    private <K, V> Map<String, Object> kafkaProducerConfiguration(KafkaProperties kafkaProperties,
+                                                                  Class<K> keySerializerClass,
+                                                                  Class<V> valueSerializerClass) {
+        Map<String, Object> configuration = new HashMap<>(kafkaProperties.getProducer());
+        configuration.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getUrl());
+        configuration.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializerClass);
+        configuration.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializerClass);
+        return configuration;
+    }
+
 
     @Getter
     @Setter

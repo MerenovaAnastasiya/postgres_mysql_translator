@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class SnapshotterTest {
 
-    private static final String SLOT_NAME = "m2";
+    private static final String SLOT_NAME = "m11";
 
     @Autowired
     PgReplicationService pgReplicationService;

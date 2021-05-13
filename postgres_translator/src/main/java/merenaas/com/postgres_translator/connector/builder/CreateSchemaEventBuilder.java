@@ -1,12 +1,12 @@
 package merenaas.com.postgres_translator.connector.builder;
 
-import merenaas.com.postgres_translator.connector.model.kafka.CreateSchemaEvent;
+import merenaas.com.postgres_translator.connector.model.SchemaInformation;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CreateSchemaEventBuilder {
 
-    public CreateSchemaEvent build(String schemaEvent) {
+    public SchemaInformation build(String schema, String comment) {
         return null;
     }
 }

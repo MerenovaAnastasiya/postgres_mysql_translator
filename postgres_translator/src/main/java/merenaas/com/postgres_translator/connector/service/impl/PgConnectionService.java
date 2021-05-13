@@ -2,35 +2,59 @@ package merenaas.com.postgres_translator.connector.service.impl;
 
 
 import lombok.RequiredArgsConstructor;
-import merenaas.com.postgres_translator.connector.model.DatabaseCredentials;
+import lombok.extern.slf4j.Slf4j;
+import merenaas.com.postgres_translator.connector.configuration.DatabaseConfiguration;
 import merenaas.com.postgres_translator.connector.service.ConnectionService;
+import org.postgresql.PGConnection;
 import org.postgresql.PGProperty;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class PgConnectionService implements ConnectionService {
 
-    private final DatabaseCredentials databaseCredentials;
-    private Connection connection;
     private static final String DRIVER_CLASSNAME = "org.postgresql.Driver";
+    private final DataSource dataSource;
+    private final DatabaseConfiguration databaseConfiguration;
+
 
     @Override
-    public Connection createConnection(DatabaseCredentials databaseCredentials) {
+    public Connection getConnection() {
+        try {
+            return dataSource.getConnection();
+        } catch (SQLException e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    @Override
+    public void closeConnection(Connection connection) {
+        try {
+            connection.close();
+        }
+        catch (SQLException ex) {
+            log.error("Error when trying close connection");
+        }
+    }
+
+    public PGConnection getReplicationConnection() {
         try {
             Class.forName(DRIVER_CLASSNAME);
             Properties props = new Properties();
-            PGProperty.USER.set(props, databaseCredentials.getUser());
-            PGProperty.PASSWORD.set(props, databaseCredentials.getPassword());
+            PGProperty.USER.set(props, databaseConfiguration.getUsername());
+            PGProperty.PASSWORD.set(props, databaseConfiguration.getPassword());
             PGProperty.ASSUME_MIN_SERVER_VERSION.set(props, "9.4");
             PGProperty.REPLICATION.set(props, "database");
             PGProperty.PREFER_QUERY_MODE.set(props, "simple");
-            return DriverManager.getConnection(databaseCredentials.getUrl(), props);
+            var connection = DriverManager.getConnection(databaseConfiguration.getJdbcUrl(), props);
+            return connection.unwrap(PGConnection.class);
         } catch (SQLException exception) {
             throw new RuntimeException("Error when trying to create connection");
         } catch (ClassNotFoundException e) {
@@ -38,28 +62,12 @@ public class PgConnectionService implements ConnectionService {
         }
     }
 
-    @Override
-    public Connection getConnection() {
-        if (this.connection == null) {
-            connection = createConnection(databaseCredentials);
-        }
-        return this.connection;
-    }
-
     public void setAutoCommit(boolean autoCommit) {
-        try {
-            connection.setAutoCommit(autoCommit);
-        } catch (SQLException exception) {
-            throw new RuntimeException("Error when trying changeAutoCommit");
-        }
-    }
-
-    public <T> T unwrap(Connection connection, Class<T> cl) {
-        try {
-            return connection.unwrap(cl);
-        } catch (SQLException e) {
-            throw new RuntimeException("Error when trying wrap connection");
-        }
+//        try {
+//            connection.setAutoCommit(autoCommit);
+//        } catch (SQLException exception) {
+//            throw new RuntimeException("Error when trying changeAutoCommit");
+//        }
     }
 
 }

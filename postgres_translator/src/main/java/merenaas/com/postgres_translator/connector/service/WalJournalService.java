@@ -1,6 +1,10 @@
 package merenaas.com.postgres_translator.connector.service;
 
-public interface WalJournalService {
+import java.util.Optional;
 
-    long readCurrentPosition();
+public interface WalJournalService {
+    void saveLastLsn(String slotName, String lastLsn);
+    Optional<String> findLastLsn(String slotName);
+
+
 }

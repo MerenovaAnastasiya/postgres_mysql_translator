@@ -5,10 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import merenaas.com.postgres_translator.connector.service.WalJournalService;
 import merenaas.com.postgres_translator.connector.service.kafka.KafkaSenderAdapter;
 import merenaas.com.postgres_translator.connector.service.replication.PgReplicationService;
-import org.postgresql.jdbc.PgConnection;
+import org.postgresql.PGConnection;
 import org.postgresql.replication.LogSequenceNumber;
 import org.postgresql.replication.PGReplicationStream;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
@@ -28,13 +27,9 @@ public class PgReplicationServiceImpl implements PgReplicationService {
     private final PgConnectionService connectionService;
     private final KafkaSenderAdapter kafkaSenderAdapter;
 
-    @Value("${replication.lsn-table-name}")
-    private String lsnTableName;
-
     @Override
     public void createLogicalReplicationSlot(String slotName, String pluginName) {
-        var connection = connectionService.getConnection();
-        var replicationConnection = connectionService.unwrap(connection, PgConnection.class);
+        var replicationConnection = connectionService.getReplicationConnection();
         try {
             replicationConnection.getReplicationAPI()
                     .createReplicationSlot()
@@ -43,15 +38,15 @@ public class PgReplicationServiceImpl implements PgReplicationService {
                     .withOutputPlugin(pluginName)
                     .make();
         } catch (SQLException e) {
+            e.printStackTrace();
             throw new RuntimeException(String.format("Error when trying create logical slot with name = %s and plugin = %s", slotName, pluginName));
         }
     }
 
     @Override
     public void replicateData(String slotName, String schemaName, @Nullable Properties slotOptions) {
-        var connection = connectionService.getConnection();
-        var replicationConnection = connectionService.unwrap(connection, PgConnection.class);
-        var lastLsn = findLastLsn(slotName);
+        var replicationConnection = connectionService.getReplicationConnection();
+        var lastLsn = walJournalService.findLastLsn(slotName);
         var startPosition = lastLsn.orElse(null);
         var replicationStream = createLogicalReplicationStream(replicationConnection, slotOptions, startPosition, slotName);
         replicateData(slotName, schemaName, replicationStream);
@@ -63,14 +58,13 @@ public class PgReplicationServiceImpl implements PgReplicationService {
             if (dataOptional.isPresent()) {
                 var data = dataOptional.get();
                 if (queryForTargetScheme(data, schemaName)) {
-
+                    getTableName(data).ifPresent(tableName -> kafkaSenderAdapter.sendAsyncDMlEvent(schemaName, tableName, data));
+                    var lastLsnSeqNumber = pgReplicationStream.getLastReceiveLSN();
+                    pgReplicationStream.setAppliedLSN(lastLsnSeqNumber);
+                    pgReplicationStream.setFlushedLSN(lastLsnSeqNumber);
+                    //всегда сохраняем ласт_лсн на случа падения
+                    walJournalService.saveLastLsn(slotName, lastLsnSeqNumber.asString());
                 }
-                var lastLsnSeqNumber = pgReplicationStream.getLastReceiveLSN();
-                pgReplicationStream.setAppliedLSN(lastLsnSeqNumber);
-                pgReplicationStream.setFlushedLSN(lastLsnSeqNumber);
-                //todo подключить пул соединений, в одном потоке не обрабатывается
-                //всегда сохраняем ласт_лсн на случа падения
-//                saveLastLsn(slotName, lastLsnSeqNumber.asString());
             } else {
                 try {
                     TimeUnit.MILLISECONDS.sleep(10L);
@@ -81,7 +75,16 @@ public class PgReplicationServiceImpl implements PgReplicationService {
         }
     }
 
-    private PGReplicationStream createLogicalReplicationStream(PgConnection connection, @Nullable Properties slotOptions, @Nullable String startPosition, String slotName) {
+    private Optional<String> getTableName(String query) {
+        var pattern = Pattern.compile("^(UPDATE|INSERT\\sINTO|DELETE\\sFROM)\\s(\\w+)\\.(\\w+)");
+        var matcher = pattern.matcher(query);
+        if (matcher.find()) {
+            return Optional.ofNullable(matcher.group(3));
+        }
+        return Optional.empty();
+    }
+
+    private PGReplicationStream createLogicalReplicationStream(PGConnection connection, @Nullable Properties slotOptions, @Nullable String startPosition, String slotName) {
         try {
             var replicationStreamBuilder = connection.getReplicationAPI()
                     .replicationStream()
@@ -100,36 +103,6 @@ public class PgReplicationServiceImpl implements PgReplicationService {
         }
     }
 
-    private void saveLastLsn(String slotName, String lastLsn) {
-        var connection = connectionService.getConnection();
-        var sql = "INSERT INTO " + lsnTableName + "(lsn, slot_name, time) VALUES(?, ?, now())";
-        try {
-            var statement = connection.prepareStatement(sql);
-            statement.setString(1, lastLsn);
-            statement.setString(2, slotName);
-            statement.execute();
-        } catch (SQLException e) {
-            log.error(e.getMessage());
-        }
-    }
-
-    private Optional<String> findLastLsn(String slotName) {
-        var connection = connectionService.getConnection();
-        var sql = "SELECT lsn FROM " + lsnTableName + " WHERE slot_name = ? ORDER BY time DESC LIMIT 1";
-        try {
-            var statement = connection.prepareStatement(sql);
-            statement.setString(1, slotName);
-            var resultSet = statement.executeQuery();
-            if (resultSet.next()) {
-                return Optional.ofNullable(resultSet.getString("lsn"));
-            }
-            return Optional.empty();
-        } catch (SQLException e) {
-            log.warn("SQL exception when trying to get last lsn");
-            return Optional.empty();
-        }
-    }
-
     private Optional<String> read(PGReplicationStream pgReplicationStream) {
         try {
             var byteBuffer = pgReplicationStream.readPending();
@@ -142,6 +115,7 @@ public class PgReplicationServiceImpl implements PgReplicationService {
                 return Optional.of(new String(source, offset, length));
             }
         } catch (SQLException e) {
+            e.printStackTrace();
             throw new RuntimeException();
         }
     }
