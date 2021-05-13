@@ -11,12 +11,12 @@ logical-replication:
 
 kafka:
   default:
-    url: localhost:9092
+    url: localhost:9091
     producer:
       acks: all
   topic:
     create-schema:
-      name: create_schems
+      name: create_schema
     create-table:
       name: create_table
 #    dml-operation:

@@ -2,12 +2,10 @@ package merenaas.com.postgres_translator.connector.snapshotter;
 
 
 import lombok.RequiredArgsConstructor;
-import merenaas.com.postgres_translator.connector.model.SchemaInformation;
 import merenaas.com.postgres_translator.connector.model.TableName;
 import merenaas.com.postgres_translator.connector.service.ConnectionService;
 import merenaas.com.postgres_translator.connector.service.DbTableService;
 import merenaas.com.postgres_translator.connector.service.SchemaInformationService;
-import merenaas.com.postgres_translator.connector.service.impl.PgConnectionService;
 import merenaas.com.postgres_translator.connector.service.kafka.KafkaSenderAdapter;
 import merenaas.com.postgres_translator.connector.service.replication.PgReplicationService;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Set;
 
 @RequiredArgsConstructor
@@ -24,7 +21,6 @@ public class SnapshotterImpl implements Snapshotter {
 
     private final SchemaInformationService schemaInformationService;
     private final PgReplicationService pgReplicationService;
-    private final PgConnectionService pgConnectionService;
     private final DbTableService dbTableService;
 
     private final KafkaSenderAdapter kafkaSenderAdapter;
@@ -40,7 +36,7 @@ public class SnapshotterImpl implements Snapshotter {
 
         var pgConnection = connectionService.getConnection();
         //todo надо ли слот запускать???
-        pgReplicationService.createLogicalReplicationSlot(slotName, pluginName);
+//        pgReplicationService.createLogicalReplicationSlot(slotName, pluginName);
 //        pgConnectionService.setAutoCommit(false);
         setTransactionLevel(pgConnection);
         var schemaInfoByNameMap = schemaInformationService.getSchemaInfoByNames(replicationSchemas);
