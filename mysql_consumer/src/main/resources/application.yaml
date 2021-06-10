@@ -1,6 +1,16 @@
 spring:
   application:
     name: mysql-consumer
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: my-12398aa98
+    hikari:
+      idle-timeout: 10000
+      maximum-pool-size: 100
+    jdbc-url: jdbc:mysql://localhost:3306/test
+
 
 kafka:
   default:
@@ -8,23 +18,17 @@ kafka:
     producer:
       acks: all
   topic:
-    schemas-snapshot:
-      name: schemas-snapshot
+    create-schema:
+      name: create_schema
       consumer:
-        group.id: ${spring.application.name}.${kafka.topic.schemas-snapshot.name}
-    tables-snapshot:
-      name: tables-snapshot
+        group.id: ${spring.application.name}.${kafka.topic.create-schema.name}
+    create-table:
+      name: create_table
       consumer:
-        group.id: ${spring.application.name}.${kafka.topic.tables-snapshot.name}
-    insert:
-      name: insert
+        group.id: ${spring.application.name}.${kafka.topic.create-table.name}
+#   название схемы базы данных
+    test:
+      name: test
       consumer:
-        group.id: ${spring.application.name}.${kafka.topic.insert.name}
-    update:
-      name: update
-      consumer:
-        group.id: ${spring.application.name}.${kafka.topic.update.name}
-    delete:
-      name: delete
-      consumer:
-        group.id: ${spring.application.name}.${kafka.topic.delete.name}
+        group.id: ${spring.application.name}.${kafka.topic.test.name}
+

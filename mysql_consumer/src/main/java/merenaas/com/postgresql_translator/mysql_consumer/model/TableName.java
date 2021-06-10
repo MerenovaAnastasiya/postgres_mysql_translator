@@ -5,16 +5,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Set;
-
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TableInformation {
+public class TableName {
 
-    private TableName tableName;
-    private Set<ColumnInformation> columnsInformation;
-    private PrimaryKeyInfo primaryKeyInfo;
+    private String name;
+    private String schemaName;
 
 }

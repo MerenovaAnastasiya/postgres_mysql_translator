@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest
 class SnapshotterTest {
 
-    private static final String SLOT_NAME = "m11";
+    private static final String SLOT_NAME = "m23";
 
     @Autowired
     PgReplicationService pgReplicationService;
@@ -23,7 +23,7 @@ class SnapshotterTest {
 
     @Test
     public void test() {
-        snapshotter.makeSnapshot();
+//        snapshotter.makeSnapshot();
 //        pgReplicationService.createLogicalReplicationSlot(SLOT_NAME, "pg_mysql_decoder");
         pgReplicationService.replicateData(SLOT_NAME, "test", null);
 

@@ -27,7 +27,7 @@ public class SchemaInformationServiceImpl implements SchemaInformationService {
         var connection = connectionService.getConnection();
         Set<String> tableNames = new HashSet<>();
         try {
-            var sql = "SELECT table_name FROM information_schema.tables  WHERE table_schema= ? ORDER BY table_name;";
+            var sql = "SELECT DISTINCT table_name FROM information_schema.tables  WHERE table_schema= ? ORDER BY table_name;";
             var statement = connection.prepareStatement(sql);
             statement.setString(1, schemaName);
             var resultSet = statement.executeQuery();

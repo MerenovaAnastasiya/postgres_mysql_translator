@@ -5,8 +5,6 @@ import lombok.Data;
 
 @Data
 @Builder
-public class SchemaInformation {
+public class TableRow {
 
-    private final String schemaName;
-    private final String comment;
 }

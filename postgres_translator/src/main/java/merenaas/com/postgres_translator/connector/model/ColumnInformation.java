@@ -1,10 +1,11 @@
 package merenaas.com.postgres_translator.connector.model;
 
 import lombok.Builder;
+import lombok.Data;
 import lombok.Getter;
 
 @Builder
-@Getter
+@Data
 public class ColumnInformation {
 
     private final String columnName;

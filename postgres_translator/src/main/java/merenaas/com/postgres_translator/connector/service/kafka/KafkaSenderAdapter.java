@@ -29,11 +29,18 @@ public class KafkaSenderAdapter {
         }
     }
 
-    public void sendAsyncCreateTableEvent(TableInformation informationAboutTable) {
-        sendAsync(() -> kafkaSender.sendCreateTableEvent(informationAboutTable));
+    public void sendSyncCreateTableEvent(TableInformation informationAboutTable) {
+        try {
+            kafkaSender.sendCreateTableEvent(informationAboutTable).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Failed to send information about creating table with name = {}", informationAboutTable.getTableName());
+        } catch (ExecutionException e) {
+            log.error("Failed to send information about creating table with name = {}", informationAboutTable.getTableName());
+        }
     }
 
-    public void sendAsyncDMlEvent(String schemaName, String tableName,  String dmlOperation) {
+    public void sendAsyncDMlEvent(String schemaName, String tableName, String dmlOperation) {
         sendAsync(() -> kafkaSender.sendDmlOperationEvent(schemaName, tableName, dmlOperation));
     }
 

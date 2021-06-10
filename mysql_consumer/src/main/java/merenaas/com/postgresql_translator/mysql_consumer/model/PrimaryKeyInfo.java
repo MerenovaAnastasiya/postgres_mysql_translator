@@ -3,18 +3,21 @@ package merenaas.com.postgresql_translator.mysql_consumer.model;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.util.Set;
+import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TableInformation {
+public class PrimaryKeyInfo {
 
-    private TableName tableName;
-    private Set<ColumnInformation> columnsInformation;
-    private PrimaryKeyInfo primaryKeyInfo;
+    private String constraintName;
+    private List<String> columnNames;
 
 }
+
+

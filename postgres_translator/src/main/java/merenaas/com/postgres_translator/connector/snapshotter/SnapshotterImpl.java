@@ -6,6 +6,7 @@ import merenaas.com.postgres_translator.connector.model.TableName;
 import merenaas.com.postgres_translator.connector.service.ConnectionService;
 import merenaas.com.postgres_translator.connector.service.DbTableService;
 import merenaas.com.postgres_translator.connector.service.SchemaInformationService;
+import merenaas.com.postgres_translator.connector.service.impl.PgConnectionService;
 import merenaas.com.postgres_translator.connector.service.kafka.KafkaSenderAdapter;
 import merenaas.com.postgres_translator.connector.service.replication.PgReplicationService;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ public class SnapshotterImpl implements Snapshotter {
 
     private final SchemaInformationService schemaInformationService;
     private final PgReplicationService pgReplicationService;
+    private final PgConnectionService pgConnectionService;
     private final DbTableService dbTableService;
 
     private final KafkaSenderAdapter kafkaSenderAdapter;
@@ -35,18 +37,23 @@ public class SnapshotterImpl implements Snapshotter {
     public void makeSnapshot() {
 
         var pgConnection = connectionService.getConnection();
-        //todo надо ли слот запускать???
-//        pgReplicationService.createLogicalReplicationSlot(slotName, pluginName);
-//        pgConnectionService.setAutoCommit(false);
+        pgReplicationService.createLogicalReplicationSlot(slotName, pluginName);
+        pgConnectionService.setAutoCommit(false);
         setTransactionLevel(pgConnection);
         var schemaInfoByNameMap = schemaInformationService.getSchemaInfoByNames(replicationSchemas);
         replicationSchemas.forEach(schemaName -> {
+            //1. генерируем схемы
+            //TODO сделать прерывание в случае, если о схеме информация не отправилась
             kafkaSenderAdapter.sendSyncCreateSchemaEvent(schemaInfoByNameMap.get(schemaName));
             var tableNames = schemaInformationService.getSchemaTableNames(schemaName);
             tableNames.forEach(tableName -> {
+                //2. блокируем таблицы на запись до полной отправки данных в кафка
                 dbTableService.shareLock(new TableName(tableName, schemaName));
                 var informationAboutTable = dbTableService.getColumnsInformationAboutTable(new TableName(tableName, schemaName));
-                kafkaSenderAdapter.sendAsyncCreateTableEvent(informationAboutTable);
+                //3. генерируем таблицы
+                kafkaSenderAdapter.sendSyncCreateTableEvent(informationAboutTable);
+                //4. генерируем данные таблицы
+                
             });
         });
     }

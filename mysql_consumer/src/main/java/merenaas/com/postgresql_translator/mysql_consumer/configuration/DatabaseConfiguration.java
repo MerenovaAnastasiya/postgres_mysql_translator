@@ -1,17 +1,20 @@
 package merenaas.com.postgresql_translator.mysql_consumer.configuration;
 
-import merenaas.com.postgresql_translator.mysql_consumer.model.DatabaseCredentials;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import javax.sql.DataSource;
+
 @Configuration
-public class DatabaseConfiguration {
+@ConfigurationProperties(prefix = "spring.datasource")
+public class DatabaseConfiguration extends HikariConfig {
 
     @Bean
-    @ConfigurationProperties(value = "db")
-    public DatabaseCredentials databaseConfiguration() {
-        return new DatabaseCredentials();
+    public DataSource dataSource() {
+        return new HikariDataSource(this);
     }
 
 }

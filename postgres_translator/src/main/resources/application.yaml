@@ -5,10 +5,6 @@ replication:
     - test
   lsn-table-name: public.last_lsn
 
-
-logical-replication:
-  slot-name: test
-
 kafka:
   default:
     url: localhost:9091

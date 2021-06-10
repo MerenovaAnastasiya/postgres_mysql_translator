@@ -97,6 +97,7 @@ public class KafkaConfiguration {
         configuration.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaProperties.getUrl());
         configuration.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, keySerializerClass);
         configuration.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, valueSerializerClass);
+        configuration.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
         return configuration;
     }
 
