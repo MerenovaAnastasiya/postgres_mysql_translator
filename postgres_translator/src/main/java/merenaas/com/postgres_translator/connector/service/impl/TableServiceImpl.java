@@ -2,25 +2,32 @@ package merenaas.com.postgres_translator.connector.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import merenaas.com.postgres_translator.connector.service.ConnectionService;
 import merenaas.com.postgres_translator.connector.model.ColumnInformation;
+import merenaas.com.postgres_translator.connector.model.PagingEntity;
 import merenaas.com.postgres_translator.connector.model.PrimaryKeyInfo;
 import merenaas.com.postgres_translator.connector.model.TableInformation;
 import merenaas.com.postgres_translator.connector.model.TableName;
-import merenaas.com.postgres_translator.connector.service.DbTableService;
+import merenaas.com.postgres_translator.connector.model.TableRow;
+import merenaas.com.postgres_translator.connector.service.ConnectionService;
+import merenaas.com.postgres_translator.connector.service.TableService;
 import org.springframework.stereotype.Service;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class DbTableServiceImpl implements DbTableService {
+public class TableServiceImpl implements TableService {
 
     private final ConnectionService connectionService;
 
@@ -66,6 +73,42 @@ public class DbTableServiceImpl implements DbTableService {
             return new TableInformation(tableName, allColumnInformation, primaryKeyInfo);
         } catch (SQLException exception) {
             throw new RuntimeException("Error when trying get information about table");
+        } finally {
+            connectionService.closeConnection(connection);
+        }
+    }
+
+    @Override
+    public PagingEntity<TableRow> selectFromTable(TableName tableName, Integer limit, Integer offset) {
+        var connection = connectionService.getConnection();
+        var sql = String.format("SELECT * FROM %s.%s LIMIT ? OFFSET ?", tableName.getSchemaName(), tableName.getName());
+        try {
+            var statement = connection.prepareStatement(sql);
+            statement.setInt(1, limit + 1);
+            statement.setInt(2, offset);
+            var resultSet = statement.executeQuery();
+            var count = 0;
+            var hasNext = false;
+            List<TableRow> result = new ArrayList<>();
+            while (resultSet.next()) {
+                if (count == limit) {
+                    hasNext = true;
+                    break;
+                }
+                var metaData = resultSet.getMetaData();
+                var columnCount = metaData.getColumnCount();
+                SortedMap<String, Object> columnMap = new TreeMap<>();
+                for (int i = 1; i <= columnCount; i++) {
+                    var columnName = metaData.getColumnName(i);
+                    columnMap.put(columnName, resultSet.getObject(columnName));
+                }
+                var row = TableRow.builder().columnMap(columnMap).tableName(tableName).build();
+                result.add(row);
+                count++;
+            }
+            return new PagingEntity<>(result, hasNext);
+        } catch (SQLException ex) {
+            throw new RuntimeException("Error when trying select from table");
         } finally {
             connectionService.closeConnection(connection);
         }

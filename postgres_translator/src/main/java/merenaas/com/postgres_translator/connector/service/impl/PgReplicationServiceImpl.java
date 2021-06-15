@@ -2,6 +2,7 @@ package merenaas.com.postgres_translator.connector.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import merenaas.com.postgres_translator.connector.model.TableName;
 import merenaas.com.postgres_translator.connector.service.WalJournalService;
 import merenaas.com.postgres_translator.connector.service.kafka.KafkaSenderAdapter;
 import merenaas.com.postgres_translator.connector.service.replication.PgReplicationService;
@@ -58,11 +59,10 @@ public class PgReplicationServiceImpl implements PgReplicationService {
             if (dataOptional.isPresent()) {
                 var data = dataOptional.get();
                 if (queryForTargetScheme(data, schemaName)) {
-                    getTableName(data).ifPresent(tableName -> kafkaSenderAdapter.sendAsyncDMlEvent(schemaName, tableName, data));
+                    getTableName(data).ifPresent(tableName -> kafkaSenderAdapter.sendAsyncDMlEvent(new TableName(tableName, schemaName), data));
                     var lastLsnSeqNumber = pgReplicationStream.getLastReceiveLSN();
                     pgReplicationStream.setAppliedLSN(lastLsnSeqNumber);
                     pgReplicationStream.setFlushedLSN(lastLsnSeqNumber);
-                    //всегда сохраняем ласт_лсн на случа падения
                     walJournalService.saveLastLsn(slotName, lastLsnSeqNumber.asString());
                 }
             } else {
@@ -115,8 +115,7 @@ public class PgReplicationServiceImpl implements PgReplicationService {
                 return Optional.of(new String(source, offset, length));
             }
         } catch (SQLException e) {
-            e.printStackTrace();
-            throw new RuntimeException();
+            throw new RuntimeException("Error when trying to get information from pgReplicationStream");
         }
     }
 

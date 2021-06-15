@@ -17,18 +17,8 @@ kafka:
     url: localhost:9091
     producer:
       acks: all
-  topic:
-    create-schema:
-      name: create_schema
-      consumer:
-        group.id: ${spring.application.name}.${kafka.topic.create-schema.name}
-    create-table:
-      name: create_table
-      consumer:
-        group.id: ${spring.application.name}.${kafka.topic.create-table.name}
-#   название схемы базы данных
-    test:
-      name: test
-      consumer:
-        group.id: ${spring.application.name}.${kafka.topic.test.name}
+    consumer:
+      group.id: ${spring.application.name}
 
+replication:
+  include-schemas: test

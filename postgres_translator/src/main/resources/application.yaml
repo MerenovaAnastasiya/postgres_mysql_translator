@@ -4,19 +4,13 @@ replication:
   include-schemas:
     - test
   lsn-table-name: public.last_lsn
+  initialize: true
 
 kafka:
   default:
     url: localhost:9091
     producer:
       acks: all
-  topic:
-    create-schema:
-      name: create_schema
-    create-table:
-      name: create_table
-#    dml-operation:
-#      name: dml_operation
 
 
 spring:

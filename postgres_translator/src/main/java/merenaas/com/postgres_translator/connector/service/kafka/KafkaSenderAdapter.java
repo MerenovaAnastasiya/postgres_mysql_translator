@@ -2,8 +2,9 @@ package merenaas.com.postgres_translator.connector.service.kafka;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import merenaas.com.postgres_translator.connector.model.SchemaInformation;
 import merenaas.com.postgres_translator.connector.model.TableInformation;
+import merenaas.com.postgres_translator.connector.model.TableName;
+import merenaas.com.postgres_translator.connector.service.SQLGeneratorService;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.util.concurrent.ListenableFuture;
@@ -17,21 +18,12 @@ import java.util.function.Supplier;
 public class KafkaSenderAdapter {
 
     private final KafkaSender kafkaSender;
-
-    public void sendSyncCreateSchemaEvent(SchemaInformation schemaInformation) {
-        try {
-            kafkaSender.sendCreateSchemaEvent(schemaInformation).get();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("Failed to send information about creating schema with name = {}", schemaInformation.getSchemaName());
-        } catch (ExecutionException e) {
-            log.error("Failed to send information about creating schema with name = {}", schemaInformation.getSchemaName());
-        }
-    }
+    private final SQLGeneratorService sqlGeneratorService;
 
     public void sendSyncCreateTableEvent(TableInformation informationAboutTable) {
         try {
-            kafkaSender.sendCreateTableEvent(informationAboutTable).get();
+            var sql = generateCreateTableSql(informationAboutTable);
+            kafkaSender.sendSqlOperationEvent(informationAboutTable.getTableName().getSchemaName(), informationAboutTable.getTableName().getSchemaName(), sql).get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("Failed to send information about creating table with name = {}", informationAboutTable.getTableName());
@@ -40,8 +32,12 @@ public class KafkaSenderAdapter {
         }
     }
 
-    public void sendAsyncDMlEvent(String schemaName, String tableName, String dmlOperation) {
-        sendAsync(() -> kafkaSender.sendDmlOperationEvent(schemaName, tableName, dmlOperation));
+    private String generateCreateTableSql(TableInformation informationAboutTable) {
+        return sqlGeneratorService.generateCreateTableSQL(informationAboutTable);
+    }
+
+    public void sendAsyncDMlEvent(TableName tableName, String dmlOperation) {
+        sendAsync(() -> kafkaSender.sendSqlOperationEvent(tableName.getSchemaName(), tableName.getName(), dmlOperation));
     }
 
 

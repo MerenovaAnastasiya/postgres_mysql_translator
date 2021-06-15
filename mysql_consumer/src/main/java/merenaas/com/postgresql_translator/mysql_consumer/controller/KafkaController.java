@@ -1,10 +1,7 @@
 package merenaas.com.postgresql_translator.mysql_consumer.controller;
 
 import lombok.RequiredArgsConstructor;
-import merenaas.com.postgresql_translator.mysql_consumer.model.SchemaInformation;
-import merenaas.com.postgresql_translator.mysql_consumer.model.TableInformation;
-import merenaas.com.postgresql_translator.mysql_consumer.service.DDLOperationService;
-import merenaas.com.postgresql_translator.mysql_consumer.service.DMLOperationService;
+import merenaas.com.postgresql_translator.mysql_consumer.service.SqlOperationService;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -12,42 +9,20 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class KafkaController {
 
-    private static final String CREATE_SCHEMA_EVENT_CONTAINER_ID = "createSchemaEventContainer";
-    private static final String CREATE_TABLE_EVENT_CONTAINER_ID = "createTableEventContainer";
-    private static final String TEST_SCHEMA_EVENT_CONTAINER_ID = "testSchemaEventContainer";
+    private static final String SQL_OPERATION_CONTAINER_ID = "sqlOperationContainer";
 
-    private final DDLOperationService ddlOperationService;
-    private final DMLOperationService dmlOperationService;
+    private final SqlOperationService sqlOperationService;
 
-
-    @KafkaListener(id = CREATE_SCHEMA_EVENT_CONTAINER_ID,
-            topics = "${kafka.topic.create-schema.name:create-schema}",
-            containerFactory = "createSchemaListenerContainer",
-            concurrency = "${kafka.topic.create-schema.concurrency:1}",
-            clientIdPrefix = "#{T(java.util.UUID).randomUUID().toString()}",
-            idIsGroup = false)
-    public void handleCreateSchemaEvent(SchemaInformation schemaInformation) {
-        ddlOperationService.createSchema(schemaInformation);
-    }
-
-    @KafkaListener(id = CREATE_TABLE_EVENT_CONTAINER_ID,
-            topics = "${kafka.topic.create-table.name:create-table}",
-            containerFactory = "createTableListenerContainer",
-            concurrency = "${kafka.topic.create-table.concurrency:1}",
-            clientIdPrefix = "#{T(java.util.UUID).randomUUID().toString()}",
-            idIsGroup = false)
-    public void handleCreateTableEvent(TableInformation tableInformation) {
-        ddlOperationService.createTable(tableInformation);
-    }
-
-    @KafkaListener(id = TEST_SCHEMA_EVENT_CONTAINER_ID,
-            topics = "${kafka.topic.test.name:test}",
-            containerFactory = "testSchemaListenerContainer",
+    @KafkaListener(id = SQL_OPERATION_CONTAINER_ID,
+            topics = "${replication.include-schemas}",
+            containerFactory = "sqlOperationListenerContainer",
             concurrency = "${kafka.topic.test.concurrency:1}",
             clientIdPrefix = "#{T(java.util.UUID).randomUUID().toString()}",
-            idIsGroup = false)
-    public void handleDmlOperationEvent(String query) {
-        dmlOperationService.executeQuery(query);
+            idIsGroup = false
+    )
+    public void handleSqlQuery(String query) {
+        //не указываем здесь ключ топика, тк это имя таблицы и оно есть в самом запросе(пока что этот парам. излишен)
+        sqlOperationService.executeQuery(query);
     }
 
 }

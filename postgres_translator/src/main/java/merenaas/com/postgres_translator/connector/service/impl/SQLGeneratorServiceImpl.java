@@ -1,43 +1,26 @@
-package merenaas.com.postgresql_translator.mysql_consumer.service.impl;
+package merenaas.com.postgres_translator.connector.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import merenaas.com.postgresql_translator.mysql_consumer.model.ColumnInformation;
-import merenaas.com.postgresql_translator.mysql_consumer.model.SchemaInformation;
-import merenaas.com.postgresql_translator.mysql_consumer.model.TableInformation;
-import merenaas.com.postgresql_translator.mysql_consumer.service.ConnectionService;
-import merenaas.com.postgresql_translator.mysql_consumer.service.DDLOperationService;
-import org.springframework.stereotype.Service;
+import merenaas.com.postgres_translator.connector.model.ColumnInformation;
+import merenaas.com.postgres_translator.connector.model.TableInformation;
+import merenaas.com.postgres_translator.connector.model.TableRow;
+import merenaas.com.postgres_translator.connector.service.SQLGeneratorService;
+import org.springframework.stereotype.Component;
 
-import java.sql.SQLException;
+import java.sql.Time;
+import java.util.Date;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Slf4j
-@Service
+@Component
 @RequiredArgsConstructor
-public class DDLOperationServiceImpl implements DDLOperationService {
+public class SQLGeneratorServiceImpl implements SQLGeneratorService {
 
-   private final ConnectionService connectionService;
     private final Set<String> mySqlSupportTypes;
 
     @Override
-    public void createSchema(SchemaInformation schemaInformation) {
-        var connection = connectionService.getConnection();
-        var sql = "CREATE SCHEMA IF NOT EXISTS " + schemaInformation.getSchemaName() + ";";
-        try {
-            var statement = connection.createStatement();
-            statement.executeUpdate(sql);
-        } catch (SQLException ex) {
-            log.error("Error when trying to create schema with name {}", schemaInformation.getSchemaName());
-        }
-        finally {
-            connectionService.closeConnection(connection);
-        }
-    }
-
-    @Override
-    public void createTable(TableInformation tableInformation) {
+    public String generateCreateTableSQL(TableInformation tableInformation) {
         var tableName = tableInformation.getTableName().getSchemaName() + "." + tableInformation.getTableName().getName();
         var columns = tableInformation.getColumnsInformation().stream()
                 .map(columnInfo -> {
@@ -47,8 +30,6 @@ public class DDLOperationServiceImpl implements DDLOperationService {
                     }
                     if (columnInfo.getCharacterMaximumLength() != null) {
                         type = columnInfo.getColumnType() + "(" + columnInfo.getCharacterMaximumLength() + ")";
-                    } else if (columnInfo.getNumericPrecision() != null) {
-                        //todo
                     }
                     var column = columnInfo.getColumnName() + " " + type;
 
@@ -63,16 +44,34 @@ public class DDLOperationServiceImpl implements DDLOperationService {
         var primaryKeyInfo = tableInformation.getPrimaryKeyInfo();
         var primaryKeyColumns = primaryKeyInfo.getColumnNames().stream()
                 .collect(Collectors.joining(", ", "(", ")"));
-        var sql = "CREATE TABLE " + tableName + columns + " CONSTRAINT " + primaryKeyInfo.getConstraintName() + " PRIMARY KEY " + primaryKeyColumns + ");";
-        var connection = connectionService.getConnection();
-        try {
-            var statement = connection.createStatement();
-            statement.executeUpdate(sql);
-        } catch (SQLException ex) {
-            log.error("Error whe trying create table with name = {}", tableInformation.getTableName());
+        return  "CREATE TABLE " + tableName + columns + " CONSTRAINT " + primaryKeyInfo.getConstraintName() + " PRIMARY KEY " + primaryKeyColumns + ");";
+    }
+
+    @Override
+    public String generateBulkInsertTableSQL(List<TableRow> tableRows) {
+        if (tableRows.size() > 0) {
+            var tableRow = tableRows.get(0);
+            var columnNames = String.join(",", tableRow.getColumnMap().keySet());
+            var sql = new StringBuilder(String.format("INSERT INTO %s.%s(%s) values ", tableRow.getTableName().getSchemaName(), tableRow.getTableName().getName(), columnNames));
+            var firstColumn = true;
+            for (int i = 0; i < tableRows.size(); i++) {
+                if (i > 0)
+                    firstColumn = false;
+                if (!firstColumn)
+                    sql.append(", ");
+                var row = tableRows.get(i).getColumnMap().values().stream().map(value -> {
+                    var strValue = value == null ? null : value.toString();
+                    if (value instanceof Date || value instanceof String) {
+                        strValue = "'" + strValue + "'";
+                    }
+                    return strValue;
+                }).collect(Collectors.joining(", ", "(", ")"));
+                sql.append(row);
+            }
+            return sql.toString();
         }
-        finally {
-            connectionService.closeConnection(connection);
+        else {
+            throw new IllegalArgumentException("Empty result!");
         }
     }
 
@@ -103,5 +102,4 @@ public class DDLOperationServiceImpl implements DDLOperationService {
         }
         return mySQLType;
     }
-
 }

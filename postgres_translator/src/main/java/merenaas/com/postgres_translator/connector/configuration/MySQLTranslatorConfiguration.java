@@ -1,4 +1,4 @@
-package merenaas.com.postgresql_translator.mysql_consumer.configuration;
+package merenaas.com.postgres_translator.connector.configuration;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

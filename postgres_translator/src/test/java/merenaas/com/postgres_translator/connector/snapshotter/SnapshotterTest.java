@@ -1,5 +1,6 @@
 package merenaas.com.postgres_translator.connector.snapshotter;
 
+import merenaas.com.postgres_translator.connector.service.Snapshotter;
 import merenaas.com.postgres_translator.connector.service.impl.PgConnectionService;
 import merenaas.com.postgres_translator.connector.service.replication.PgReplicationService;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ class SnapshotterTest {
 
     @Test
     public void test() {
-//        snapshotter.makeSnapshot();
+        snapshotter.makeSnapshot();
 //        pgReplicationService.createLogicalReplicationSlot(SLOT_NAME, "pg_mysql_decoder");
         pgReplicationService.replicateData(SLOT_NAME, "test", null);
 
